@@ -58,5 +58,86 @@
 USER=vagrantLOGNAME=vagrantHOME=/home/vagrantPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:      /tmp/new_path_directory/bashSHELL=/bin/bashTERM=xterm-256colorXDG_SESSION_ID=7XDG_RUNTIME_DIR=/run/user/1000DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/busXDG_SESSION_TYPE=ttyXDG_SESSION_CLASS=userMOTD_SHOWN=pamLANG=en_US.UTF-8LANGUAGE=en_US:SSH_CLIENT=10.0.2.2 60402 22SSH_CONNECTION=10.0.2.2 60402 10.0.2.15 22SSH_TTY=/dev/
 Если использовать команды  printenv и env то можно получить аналогичный вывод но с выводом построчно     
      
-     
-    
+ 10. /proc/<PID>/cmdline - полный путь до исполняемого файла процесса [PID]  (строка 231)
+     /proc/<PID>/exe - содержит ссылку до файла запущенного для процесса [PID], 
+                        cat выведет содержимое запущенного файла, 
+                        запуск этого файла,  запустит еще одну копию самого файла  (строка 285)
+ 11. Cat или Less /proc/cpuinfo в разделе 'flags':
+      процессор Intel core i5 2430m наиболее старшая инструкция sse4.2.
+      
+ 12. При подключении ожидается пользователь, а не другой процесс, и отсутствует локальный tty.
+    vagrant@vagrant:~$ ssh localhost 'tty'
+    vagrant@localhost's password:
+ 13. Предварительно был установлен пакет reptyr sudo apt-get install reptyr
+      vagrant@vagrant:~$ pstree -p
+            systemd(1)─┬─VBoxService(812)─┬─{VBoxService}(813)
+                   │                  ├─{VBoxService}(814)
+                   │                  ├─{VBoxService}(815)
+                   │                  ├─{VBoxService}(816)
+                   │                  ├─{VBoxService}(817)
+                   │                  ├─{VBoxService}(818)
+                   │                  ├─{VBoxService}(819)
+                   │                  └─{VBoxService}(820)
+                   ├─accounts-daemon(581)─┬─{accounts-daemon}(591)
+                   │                      └─{accounts-daemon}(628)
+                   ├─agetty(690)
+                   ├─atd(680)
+                   ├─cron(677)
+                   ├─dbus-daemon(587)
+                   ├─lldpd(666)───lldpd(692)
+                   ├─multipathd(524)─┬─{multipathd}(525)
+                   │                 ├─{multipathd}(526)
+                   │                 ├─{multipathd}(527)
+                   │                 ├─{multipathd}(528)
+                   │                 ├─{multipathd}(529)
+                   │                 └─{multipathd}(530)
+                   ├─networkd-dispat(605)
+                   ├─polkitd(642)─┬─{polkitd}(644)
+                   │              └─{polkitd}(646)
+                   ├─rpcbind(555)
+                   ├─rsyslogd(607)─┬─{rsyslogd}(618)
+                   │               ├─{rsyslogd}(619)
+                   │               └─{rsyslogd}(620)
+                   ├─sshd(679)───sshd(822)───sshd(858)───bash(859)─┬─less(888)
+                   │                                               └─pstree(890)
+                   ├─systemd(828)───(sd-pam)(830)
+                   ├─systemd-journal(359)
+                   ├─systemd-logind(609)
+                   ├─systemd-network(385)
+                   ├─systemd-resolve(556)
+                   └─systemd-udevd(384)
+vagrant@vagrant:~$ bg less
+[1]+ less /proc/cpuinfo &
+
+[1]+  Stopped                 less /proc/cpuinfo
+vagrant@vagrant:~$ sudo sh -c reptyr 888
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 42
+model name      : Intel(R) Core(TM) i5-2430M CPU @ 2.40GHz
+stepping        : 7
+cpu MHz         : 2394.562
+cache size      : 3072 KB
+physical id     : 0
+siblings        : 1
+core id         : 0
+cpu cores       : 1
+apicid          : 0
+initial apicid  : 0
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 13
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid tsc_known_freq pni pclmulqdq monitor ssse3 cx16 sse4_1 sse4_2 x2apic popcnt aes xsave avx hypervisor lahf_lm pti md_clear flush_l1d
+bugs            : cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds swapgs itlb_multihit
+bogomips        : 4789.12
+clflush size    : 64
+cache_alignment : 64
+address sizes   : 36 bits physical, 48 bits virtual
+      
+     Командой bg возобновляет процесс в фоновом режиме.
+      
+ 14.  команда tee делает вывод одновременно и в файл, указаный в качестве параметра, и в stdout, 
+      в данном примере команда получает вывод из stdin, перенаправленный через pipe от stdout команды echo
+      и так как команда запущена от sudo , соотвественно имеет права на запись в файл
