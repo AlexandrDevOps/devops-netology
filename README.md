@@ -1,64 +1,176 @@
-# Домашнее задание к занятию "3.3. Операционные системы, лекция 1"  
-1. Системный вызов команды CD это chdir("/tmp") в нашем случае.  
-2. При использовании strace для команды file выявил закономерность и согласно логу база находится /usr/share/misc/magic.mgc:  
-      openat(AT_FDCWD, "/usr/share/misc/magic.mgc", O_RDONLY) = 3  
-   Данная строка присутсвтует во всех запросах по дирректориям указаным в задании.  
-3.    root@vagrant:~# ping 192.168.0.1>log &  
-      [1] 1355  
-      root@vagrant:~# lsof -p 1355  
-      COMMAND  PID USER   FD   TYPE DEVICE SIZE/OFF    NODE NAME  
-      ping    1355 root  cwd    DIR  253,0     4096 3538945 /root  
-      ping    1355 root  rtd    DIR  253,0     4096       2 /  
-      ping    1355 root  txt    REG  253,0    72776  524524 /usr/bin/ping  
-      ping    1355 root  mem    REG  253,0  5699248  535133 /usr/lib/locale/locale-archive  
-      ping    1355 root  mem    REG  253,0   137584  527268 /usr/lib/x86_64-linux-gnu/libgpg-error.so.0.28.0  
-      ping    1355 root  mem    REG  253,0  2029224  527432 /usr/lib/x86_64-linux-gnu/libc-2.31.so  
-      ping    1355 root  mem    REG  253,0   101320  527451 /usr/lib/x86_64-linux-gnu/libresolv-2.31.so  
-      ping    1355 root  mem    REG  253,0  1168056  527252 /usr/lib/x86_64-linux-gnu/libgcrypt.so.20.2.5  
-      ping    1355 root  mem    REG  253,0    31120  527208 /usr/lib/x86_64-linux-gnu/libcap.so.2.32  
-      ping    1355 root  mem    REG  253,0   191472  527389 /usr/lib/x86_64-linux-gnu/ld-2.31.so  
-      ping    1355 root    0u   CHR  136,0      0t0       3 /dev/pts/0  
-      ping    1355 root    1w   REG  253,0        0 3538952 /root/log  
-      ping    1355 root    2u   CHR  136,0      0t0       3 /dev/pts/0  
-      ping    1355 root    3u  icmp             0t0   29719 00000000:0004->00000000:0000  
-      ping    1355 root    4u  sock    0,9      0t0   29720 protocol: PINGv6  
-      root@vagrant:~# lsof -p 1355 | grep log  
-      ping    1355 root    1w   REG  253,0        0 3538952 /root/log  
-      root@vagrant:~# rm -f log  
-      root@vagrant:~# lsof -p 1355 | grep delete  
-      ping    1355 root    1w   REG  253,0        0 3538952 /root/log (deleted)  
-      root@vagrant:~# truncate -s0 /proc/1355/fd/1  
-4. "Зомби" процессы освобождают ресурсы системы, но оставляют запись в таблице процессов. Запись освободиться при вызове wait() родительским процессом.   
-5. После установки при вызове увидел обращения по следующему пути согласно логу:  
-      vagrant@vagrant:~$ sudo -i  
-      root@vagrant:~# dpkg -L bpfcc-tools | grep sbin/opensnoop  
-      /usr/sbin/opensnoop-bpfcc  
-      root@vagrant:~# /usr/sbin/opensnoop-bpfcc  
-            PID    COMM               FD ERR PATH  
-            1      systemd            12   0 /proc/385/cgroup  
-            1      systemd            12   0 /proc/557/cgroup  
-            938    vminfo              6   0 /var/run/utmp  
-            593    dbus-daemon        -1   2 /usr/local/share/dbus-1/system-services  
-            593    dbus-daemon        18   0 /usr/share/dbus-1/system-services  
-            593    dbus-daemon        -1   2 /lib/dbus-1/system-services  
-            593    dbus-daemon        18   0 /var/lib/snapd/dbus-1/system-services/  
-  6. Команда Uname -a испорльзует системный вызов uname()  
-      Цитата :  
-                  Part of the utsname information is also accessible  via  /proc/sys/ker‐  
-                  nel/{ostype, hostname, osrelease, version, domainname}.  
-  7. && - условный оператор,  
-      ; - разделитель последовательных команд  
+# Домашнее задание к занятию "3.4. Операционные системы, лекция 2"  
+1.  Создан unit-файл для node_exporter и помещен по следующему пути: /lib/systemd/system:
+  
+      [Unit]
+      Description=Node Exporter
+      After=network.target
+      [Service]
+      EnvironmentFile=-/home/vagrant/node_exporter/options
+      ExecStart=/home/vagrant/node_exporter/node_exporter $OPTS
+      Restart=on-failure
+      Type=simple
+      [Install]
+      WantedBy=multi-user.target
 
-      Например: echo 1 && echo 2 вернет 2 если первая команда выполнится успешно  
-                echo 1 ; echo 2 выполнится второй командой по списку  
-      есть еще вариант оператора || если echo 1 || echо 2 вернет 2 если первая команда выполнится неуспешно.  
-      Команда считается успешной, если ее код выхода равен 0 и считается неудачно выполненной, если код выхода не равен 0  
-  8.  set -euxo pipefail было бы хорошо использовать для сценариев чтобы повысить детализацию вывода ошибок и упрощения логирования.
-      -e прерывает выполнение исполнения при ошибке любой команды кроме последней в последовательности 
-      -x вывод трейса простых команд 
-      -u неустановленные/не заданные параметры и переменные считаются как ошибки, с выводом в stderr текста ошибки и выполнит завершение неинтерактивного вызова
-      -o pipefail возвращает код возврата набора/последовательности команд, ненулевой при последней команды или 0 для успешного выполнения команд.
-  9.  Согласно man:
-      S*(S,S+,Ss,Ssl,Ss+) - Процессы ожидающие завершения (спящие с прерыванием "сна")
-      I*(I,I<) - фоновые(бездействующие) процессы ядра
-      дополнительные символы это дополнительные характеристики, например приоритет.
+      Далее требуется создать файл, в котором можно будет указывать опции при запуске node_exporter:
+
+      vagrant@vagrant:~$ cat node_exporter/options  
+            OPTS="--collector.cpu.info"  
+
+      Добавим в автозапуск:  
+      
+      vagrant@vagrant:~$ sudo -i  
+      root@vagrant:/lib/systemd/system# systemctl enable node_exporter.service  
+
+      перезапускаем systemd для применения настроек:  
+
+      root@vagrant:/lib/systemd/system# systemctl daemon-reload  
+
+      Запускаем службу и проверяем статус:  
+
+      root@vagrant:/lib/systemd/system# service node_exporter start  
+      root@vagrant:/lib/systemd/system# service node_exporter status  
+      ● node_exporter.service - Node Exporter  
+      Loaded: loaded (/lib/systemd/system/node_exporter.service; enabled; vendor preset: enabled)  
+      Active: active (running) since Sat 2022-01-01 23:34:12 UTC; 19s ago  
+      Main PID: 18859 (node_exporter)  
+            Tasks: 6 (limit: 2278)  
+            Memory: 2.7M  
+            CGroup: /system.slice/node_exporter.service  
+                        └─18859 /home/vagrant/node_exporter/node_exporter --collector.cpu.info  
+
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=thermal_zone  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=time  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=timex  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=udp_queues  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=uname  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=vmstat  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=xfs  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.726Z caller=node_exporter.go:115 level=info collector=zfs  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.727Z caller=node_exporter.go:199 level=info msg="Listening on" address=:9>  
+      Jan 01 23:34:12 vagrant node_exporter[18859]: ts=2022-01-01T23:34:12.729Z caller=tls_config.go:195 level=info msg="TLS is disabled." http2=fal>  
+
+      Проверяем, что служба работает:  
+
+      vagrant@vagrant:~$ curl -s http://localhost:9100/metrics 2>/dev/null | grep node_filesystem_avail_bytes | grep mapper  
+      node_filesystem_avail_bytes{device="/dev/mapper/vgvagrant-root",fstype="ext4",mountpoint="/"} 6.055673856e+10  
+
+      Работа сервиса корректна и в дальнейшем после перезагрузки будет производится без проблем.  
+2.  Для мониторинга CPU:   
+      node_cpu_seconds_total{cpu="0",mode="idle"} 2238.49  
+      node_cpu_seconds_total{cpu="0",mode="system"} 16.72  
+      node_cpu_seconds_total{cpu="0",mode="user"} 6.86  
+      process_cpu_seconds_total  
+    Для мониторинга Memory:  
+      node_memory_MemAvailable_bytes   
+      node_memory_MemFree_bytes  
+    Для мониторинга Disk:  
+      node_disk_io_time_seconds_total{device="sda"}   
+      node_disk_read_bytes_total{device="sda"}   
+      node_disk_read_time_seconds_total{device="sda"}   
+      node_disk_write_time_seconds_total{device="sda"}  
+    Для мониторинга Network(так же для каждого активного адаптера):  
+      node_network_receive_errs_total{device="eth0"}   
+      node_network_receive_bytes_total{device="eth0"}   
+      node_network_transmit_bytes_total{device="eth0"}  
+      node_network_transmit_errs_total{device="eth0"}  
+3.    Результат выполнения приложен в виде документа со скрином. В документе дополнительно поясняется как удалось запустить.        
+4.    Согласно выводу, да полностью осознает 
+    
+      vagrant@vagrant:~$ dmesg |grep virtualiz  
+      [    0.011529] CPU MTRRs all blank - virtualized system.  
+      [    0.222665] Booting paravirtualized kernel on KVM  
+      [    3.969612] systemd[1]: Detected virtualization oracle. 
+      
+5.    Максимальное число открытых дескрипторов для ядра (системы), для пользователя задать больше без изменения числа не получится Задавать необходимо кратно 1024.
+       
+      vagrant@vagrant:~$ /sbin/sysctl -n fs.nr_open    
+      1048576    
+      Максимальное число операционной системы: 
+      vagrant@vagrant:~$ cat /proc/sys/fs/file-max  
+      9223372036854775807 
+      
+6.    vagrant@vagrant:~$ su  
+      Password:  
+      root@vagrant:/home/vagrant# unshare --pid --fork --mount-proc sleep 1h &  
+      [1] 1271  
+      root@vagrant:/home/vagrant# lsns  
+        NS TYPE   NPROCS   PID USER            COMMAND  
+      4026531835 cgroup     99     1 root            /sbin/init  
+      4026531836 pid        96     1 root            /sbin/init  
+      4026531837 user       99     1 root            /sbin/init  
+      4026531838 uts        97     1 root            /sbin/init  
+      4026531839 ipc        99     1 root            /sbin/init  
+      4026531840 mnt        86     1 root            /sbin/init  
+      4026531860 mnt         1    15 root            kdevtmpfs  
+      4026531992 net        99     1 root            /sbin/init  
+      4026532162 mnt         1   388 root            /lib/systemd/systemd-udevd  
+      4026532163 uts         1   388 root            /lib/systemd/systemd-udevd  
+      4026532164 mnt         1   393 systemd-network /lib/systemd/systemd-networkd  
+      4026532183 mnt         1   558 systemd-resolve /lib/systemd/systemd-resolved  
+      4026532184 uts         1   610 root            /lib/systemd/systemd-logind  
+      4026532185 mnt         2   670 _lldpd          lldpd: monitor.  
+      4026532186 mnt         2  1234 root            unshare --pid --fork --mount-proc sleep 1h  
+      4026532187 pid         1  1235 root            sleep 1h  
+      4026532188 mnt         2  1237 root            unshare --pid --fork --mount-proc sleep 1h  
+      4026532189 pid         1  1238 root            sleep 1h  
+      4026532190 mnt         2  1271 root            unshare --pid --fork --mount-proc sleep 1h  
+      4026532191 pid         1  1272 root            sleep 1h  
+      4026532249 mnt         1   610 root            /lib/systemd/systemd-logind  
+      root@vagrant:/home/vagrant# nsenter -a -t 1271  
+      root@vagrant:/# ps  
+      Error, do this: mount -t proc proc /proc  
+      root@vagrant:/# mount -t proc proc /proc  
+      root@vagrant:/# ps  
+            PID TTY          TIME CMD  
+           1263 pts/0    00:00:00 su  
+           1264 pts/0    00:00:00 bash  
+           1271 pts/0    00:00:00 unshare  
+           1272 pts/0    00:00:00 sleep  
+           1276 pts/0    00:00:00 nsenter  
+           1277 pts/0    00:00:00 bash  
+           1289 pts/0    00:00:00 ps  
+           
+7.    Команда :(){ :|:& };: - это вредоносная команда (fork-Бомба), в результате которой запускается функция, которая запускает два своих экземпляра, которые в свою         очередь запускают еще по два, потребляя ресурсы системы. Таким образом, будут создаваться новые процессы до исчерпания лимитов.  
+      Вывод dmesg показал, что сработали лимиты системы cgroups на уровне user.slice.  
+      Текущий лимит на максимальное число запущенных процессов для пользователя, который вошел в систему, можно посмотреть командой (стоит limit: 5014)
+      
+          vagrant@vagrant:~$ systemctl status user-1000.slice  
+          ● user-1000.slice - User Slice of UID 1000  
+            Loaded: loaded  
+            Drop-In: /usr/lib/systemd/system/user-.slice.d  
+                         └─10-defaults.conf  
+            Active: active since Sat 2022-01-01 19:57:16 UTC; 1min 6s ago   
+            Docs: man:user@.service(5)  
+            Tasks: 7 (limit: 5014)  
+            Memory: 6.5M  
+            CGroup: /user.slice/user-1000.slice  
+                        ├─session-1.scope  
+                        │ ├─734 sshd: vagrant [priv]  
+                        │ ├─766 sshd: vagrant@pts/0  
+                        │ ├─767 -bash  
+                        │ ├─870 systemctl status user-1000.slice  
+                        │ └─871 pager  
+                        └─user@1000.service  
+                           └─init.scope  
+                             ├─737 /lib/systemd/systemd --user  
+                             └─738 (sd-pam)  
+
+            Jan 01 19:57:17 vagrant systemd[737]: Listening on GnuPG cryptographic agent and passphrase cache (restricted).  
+            Jan 01 19:57:17 vagrant systemd[737]: Listening on GnuPG cryptographic agent (ssh-agent emulation).  
+            Jan 01 19:57:17 vagrant systemd[737]: Listening on GnuPG cryptographic agent and passphrase cache.  
+            Jan 01 19:57:17 vagrant systemd[737]: Listening on debconf communication socket.  
+            Jan 01 19:57:17 vagrant systemd[737]: Listening on REST API socket for snapd user session agent.  
+            Jan 01 19:57:17 vagrant systemd[737]: Listening on D-Bus User Message Bus Socket.  
+            Jan 01 19:57:17 vagrant systemd[737]: Reached target Sockets.  
+            Jan 01 19:57:17 vagrant systemd[737]: Reached target Basic System.  
+            Jan 01 19:57:17 vagrant systemd[737]: Reached target Main User Target.  
+            Jan 01 19:57:17 vagrant systemd[737]: Startup finished in 705ms.  
+        Проверить данный лимит можно с помощью команды: systemctl cat user-1000.slice  
+        Допустимо изменить лимит:
+        
+        vagrant@vagrant:~$ sudo cat /usr/lib/systemd/system/user-1000.slice.d/10-tasksmax.conf  
+        [Slice]  
+        TasksMax=100 
+        
+        после требуется перезапустить systemd для применения настроек.  
